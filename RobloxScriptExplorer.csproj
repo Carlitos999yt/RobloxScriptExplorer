@@ -4,36 +4,36 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
-    <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
-    
-    <!-- Version & Assembly Metadata -->
-    <ApplicationTitle>Roblox Script Explorer</ApplicationTitle>
+    <UseWPF>true</UseWPF>
+    <StartupObject>RobloxScriptExplorer.App</StartupObject>
     <ApplicationIcon>app.ico</ApplicationIcon>
+
+    <!-- Windows File Properties Details & Assembly Metadata -->
     <Version>1.0.0</Version>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
-    <ProductVersion>1.0.0</ProductVersion>
-    <Authors>Carlitos999yt</Authors>
-    <Company>Carlitos999yt</Company>
+    <InformationalVersion>1.0.0</InformationalVersion>
     <Product>Roblox Script Explorer</Product>
-    <Description>Herramienta y librería C# para explorar, editar y exportar scripts de Roblox Studio.</Description>
-    <Copyright>Copyright © 2026 Carlitos999yt</Copyright>
-    <NeutralLanguage>es</NeutralLanguage>
+    <Company>Carlitos999yt</Company>
+    <Copyright>Copyright (c) 2026 Carlitos999yt. All rights reserved.</Copyright>
+    <Description>Roblox Script Explorer Executable Tool</Description>
 
-    <!-- RAM & Performance Optimizations -->
-    <ServerGarbageCollection>false</ServerGarbageCollection>
-    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
-    <TieredCompilation>true</TieredCompilation>
-    <Optimize>true</Optimize>
-    <Deterministic>true</Deterministic>
-
-    <!-- Standalone Single-File Packaging Options (Ultra-Lightweight 70 MB) -->
+    <!-- Single File Executable Self-Extract Options -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+    <!-- Size & Runtime Trimming Optimizations (Eliminates MetadataUpdater and AV False Positives) -->
+    <DebuggerSupport>false</DebuggerSupport>
+    <EventSourceSupport>false</EventSourceSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
 
   <ItemGroup>
