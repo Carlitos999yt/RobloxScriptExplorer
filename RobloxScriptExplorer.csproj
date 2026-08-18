@@ -28,12 +28,12 @@
     <Optimize>true</Optimize>
     <Deterministic>true</Deterministic>
 
-    <!-- Clean Standalone Packaging (Without suspicious compressed overlays) -->
+    <!-- Standalone Single-File Packaging Options (Ultra-Lightweight 70 MB) -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
