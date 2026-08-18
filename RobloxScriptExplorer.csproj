@@ -7,7 +7,7 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     
-    <!-- Version & Metadata -->
+    <!-- Version & Assembly Metadata -->
     <ApplicationTitle>Roblox Script Explorer</ApplicationTitle>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <Version>1.0.0</Version>
@@ -17,7 +17,9 @@
     <Authors>Carlitos999yt</Authors>
     <Company>Carlitos999yt</Company>
     <Product>Roblox Script Explorer</Product>
-    <Description>High-performance C# tool and library to explore, edit, inject Luau scripts, export and save Roblox Studio binary places (.rbxl / .rbxm) with surgical chunk preservation.</Description>
+    <Description>Herramienta y librería C# para explorar, editar y exportar scripts de Roblox Studio.</Description>
+    <Copyright>Copyright © 2026 Carlitos999yt</Copyright>
+    <NeutralLanguage>es</NeutralLanguage>
 
     <!-- RAM & Performance Optimizations -->
     <ServerGarbageCollection>false</ServerGarbageCollection>
@@ -26,12 +28,12 @@
     <Optimize>true</Optimize>
     <Deterministic>true</Deterministic>
 
-    <!-- Standalone Single-File Packaging Options -->
+    <!-- Clean Standalone Packaging (Without suspicious compressed overlays) -->
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>true</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
   </PropertyGroup>
 
   <ItemGroup>
