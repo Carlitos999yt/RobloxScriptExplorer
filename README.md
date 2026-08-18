@@ -122,5 +122,22 @@ Console.WriteLine($"Proyecto exportado en: {carpetaDestino}");
 
 ---
 
+## 📥 Cómo Importar Archivos de Modelo e Interfaces (`.rbxmx`) en Roblox Studio
+
+Los archivos exportados en formato **`.rbxmx`** son paquetes oficiales de Roblox que contienen modelos 3D, interfaces gráficas, sonidos y scripts Luau con su código integrado.
+
+### 🟢 Método Recomendado: Clic Derecho -> "Insert from File..."
+1. Abre **Roblox Studio** con tu mapa cargado o una plantilla en blanco.
+2. En la ventana del **Explorador** (*Explorer*), localiza el servicio correspondiente (por ejemplo: **`StarterGui`**, **`Workspace`** o **`ReplicatedStorage`**).
+3. Haz **clic derecho** sobre el servicio de destino.
+4. Selecciona **`Insert from File...` (Insertar desde archivo...)**.
+5. Elige el archivo `.rbxmx` exportado (ej: `StarterGui.rbxmx`).
+6. ¡Listo! Todo el contenido, scripts e interfaces aparecerán instantáneamente en su lugar correcto.
+
+### 🟢 Método Rápido: Arrastrar y Soltar (Drag & Drop)
+* También puedes **arrastrar el archivo `.rbxmx` con el ratón** y soltarlo directamente sobre la ventana del visor 3D o el Explorador de Roblox Studio.
+
+---
+
 ## 📄 Licencia
 Este proyecto está bajo la Licencia **MIT** - eres libre de usarlo, modificarlo e integrarlo en tus propios proyectos personales o comerciales.
