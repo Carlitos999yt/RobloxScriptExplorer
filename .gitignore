@@ -1,0 +1,14 @@
+## .NET & Visual Studio
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+Release_Standalone/
+
+## Backups and Temporary Files
+*.tmp
+*.bak
+*.log

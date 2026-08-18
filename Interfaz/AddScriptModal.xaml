@@ -1,0 +1,41 @@
+<Window x:Class="RobloxScriptExplorer.Interfaz.AddScriptModal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Agregar Nuevo Script" Height="340" Width="440"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="#181825" Foreground="#CDD6F4" FontFamily="Segoe UI">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="Nombre del Script:" FontSize="13" Foreground="#BAC2DE" Margin="0,0,0,5"/>
+        <TextBox x:Name="TxtName" Grid.Row="1" Background="#11111B" Foreground="#CDD6F4" BorderBrush="#313244"
+                 BorderThickness="1" Padding="8,6" FontSize="13" Text="NewScript" Margin="0,0,0,14"/>
+
+        <TextBlock Grid.Row="2" Text="Tipo de Script:" FontSize="13" Foreground="#BAC2DE" Margin="0,0,0,5"/>
+        <ComboBox x:Name="CmbType" Grid.Row="3" Background="#11111B" Foreground="#11111B"
+                  FontSize="13" Padding="6,4" Margin="0,0,0,14">
+            <ComboBoxItem Content="Script (Servidor)" IsSelected="True" Tag="Script"/>
+            <ComboBoxItem Content="LocalScript (Cliente)" Tag="LocalScript"/>
+            <ComboBoxItem Content="ModuleScript (Módulo)" Tag="ModuleScript"/>
+        </ComboBox>
+
+        <TextBlock Grid.Row="4" Text="Ubicación / Carpeta de Destino:" FontSize="13" Foreground="#BAC2DE" Margin="0,0,0,5"/>
+        <ComboBox x:Name="CmbParent" Grid.Row="5" Background="#11111B" Foreground="#11111B"
+                  FontSize="13" Padding="6,4" Margin="0,0,0,20"/>
+
+        <StackPanel Grid.Row="6" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Bottom">
+            <Button x:Name="BtnCancel" Content="Cancelar" Width="90" Height="32" Background="#313244" Foreground="#CDD6F4"
+                    BorderThickness="0" Margin="0,0,10,0" Cursor="Hand" Click="BtnCancel_Click"/>
+            <Button x:Name="BtnCreate" Content="Crear Script" Width="110" Height="32" Background="#2E7D32" Foreground="White"
+                    FontWeight="Bold" BorderThickness="0" Cursor="Hand" Click="BtnCreate_Click"/>
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,377 @@
+<Window x:Class="RobloxScriptExplorer.Interfaz.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Roblox Studio Script &amp; Place Explorer - Professional Studio Edition" Height="880" Width="1500"
+        WindowStartupLocation="CenterScreen"
+        Icon="../app.ico"
+        Background="#0B0F19" Foreground="#F8FAFC" FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <!-- System Selection Overrides (NEVER TURN WHITE) -->
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#0284C7"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFFFF"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="#0369A1"/>
+        <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="#FFFFFF"/>
+
+        <!-- Custom Dark ScrollBar Styles (Handles Both Vertical and Horizontal) -->
+        <Style TargetType="{x:Type ScrollBar}">
+            <Setter Property="Background" Value="#0F172A"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Vertical">
+                    <Setter Property="Width" Value="10"/>
+                    <Setter Property="Height" Value="Auto"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid Background="#0F172A">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="true">
+                                        <Track.Thumb>
+                                            <Thumb>
+                                                <Thumb.Template>
+                                                    <ControlTemplate TargetType="{x:Type Thumb}">
+                                                        <Border Background="#334155" CornerRadius="5" Margin="2"/>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="true">
+                                                                <Setter Property="Background" Value="#0284C7"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsDragging" Value="true">
+                                                                <Setter Property="Background" Value="#38BDF8"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Thumb.Template>
+                                            </Thumb>
+                                        </Track.Thumb>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="10"/>
+                    <Setter Property="Width" Value="Auto"/>
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                <Grid Background="#0F172A">
+                                    <Track x:Name="PART_Track" IsDirectionReversed="false">
+                                        <Track.Thumb>
+                                            <Thumb>
+                                                <Thumb.Template>
+                                                    <ControlTemplate TargetType="{x:Type Thumb}">
+                                                        <Border Background="#334155" CornerRadius="5" Margin="2"/>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="true">
+                                                                <Setter Property="Background" Value="#0284C7"/>
+                                                            </Trigger>
+                                                            <Trigger Property="IsDragging" Value="true">
+                                                                <Setter Property="Background" Value="#38BDF8"/>
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Thumb.Template>
+                                            </Thumb>
+                                        </Track.Thumb>
+                                    </Track>
+                                </Grid>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- TreeViewItem Style -->
+        <Style TargetType="TreeViewItem">
+            <Setter Property="Foreground" Value="#F8FAFC"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Margin" Value="0,1,0,1"/>
+            <Setter Property="Padding" Value="2,3"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#0369A1"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- DataGrid Column Header Style -->
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground" Value="#38BDF8"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="FontSize" Value="12.5"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="BorderBrush" Value="#334155"/>
+            <Setter Property="BorderThickness" Value="0,0,1,1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Border Background="#1E293B" BorderBrush="#334155" BorderThickness="0,0,1,1" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- DataGrid Cell Style -->
+        <Style TargetType="DataGridCell">
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#1E3A8A"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- TabItem Style -->
+        <Style TargetType="TabItem">
+            <Setter Property="Background" Value="#1E293B"/>
+            <Setter Property="Foreground" Value="#94A3B8"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="16,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TabItem">
+                        <Border x:Name="TabBorder" Background="#1E293B" BorderBrush="#334155" BorderThickness="1,1,1,0" CornerRadius="6,6,0,0" Padding="{TemplateBinding Padding}" Margin="0,0,4,0">
+                            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="TabBorder" Property="Background" Value="#0B0F19"/>
+                                <Setter TargetName="TabBorder" Property="BorderBrush" Value="#38BDF8"/>
+                                <Setter Property="Foreground" Value="#38BDF8"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Foreground" Value="#F8FAFC"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="64"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Top Navigation Toolbar -->
+        <Border Grid.Row="0" Background="#1E293B" BorderBrush="#334155" BorderThickness="0,0,0,1" Padding="14,8">
+            <Grid>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="BtnOpen" Content="📂 Abrir .rbxl" Background="#0284C7" Foreground="#FFFFFF"
+                            FontWeight="Bold" Padding="14,8" BorderThickness="0" Cursor="Hand" Click="BtnOpen_Click">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                    </Button>
+                    
+                    <Border Background="#0F172A" CornerRadius="6" BorderBrush="#334155" BorderThickness="1" Padding="10,6" Margin="12,0,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Archivo:" Foreground="#94A3B8" FontWeight="SemiBold" Margin="0,0,6,0"/>
+                            <TextBlock x:Name="LblCurrentFile" Text="Ningún archivo abierto" Foreground="#F8FAFC"
+                                       FontWeight="Bold" FontStyle="Italic"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button x:Name="BtnBackups" Content="🔄 Backups &amp; Recuperar" Background="#0D9488" Foreground="#FFFFFF"
+                            FontWeight="SemiBold" Padding="12,8" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" Click="BtnBackups_Click">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                    </Button>
+                    <Button x:Name="BtnExportModel" Content="🧊 Exportar Modelo (.rbxmx)" Background="#7C3AED" Foreground="#FFFFFF"
+                            FontWeight="SemiBold" Padding="12,8" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" IsEnabled="False" Click="BtnExportModel_Click">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                    </Button>
+                    <Button x:Name="BtnExportSelected" Content="🎯 Exportar Selección" Background="#0284C7" Foreground="#FFFFFF"
+                            FontWeight="SemiBold" Padding="12,8" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" IsEnabled="False" Click="BtnExportSelected_Click">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                    </Button>
+                    <Button x:Name="BtnExportAll" Content="📦 Exportar Todo" Background="#475569" Foreground="#F8FAFC"
+                            FontWeight="SemiBold" Padding="12,8" BorderThickness="0" Margin="0,0,10,0" Cursor="Hand" IsEnabled="False" Click="BtnExportAll_Click">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                    </Button>
+                    <Button x:Name="BtnSave" Content="💾 Guardar y Reemplazar" Background="#16A34A" Foreground="White"
+                            FontWeight="Bold" Padding="16,8" BorderThickness="0" Cursor="Hand" IsEnabled="False" Click="BtnSave_Click">
+                        <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Workspace Splitter -->
+        <Grid Grid.Row="1" Margin="12">
+            <Grid.ColumnDefinitions>
+                <!-- Spacious Left Panel -->
+                <ColumnDefinition Width="520" MinWidth="380"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*" MinWidth="480"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Left Panel (Explorer Tree) -->
+            <Border Grid.Column="0" Background="#1E293B" CornerRadius="8" BorderBrush="#334155" BorderThickness="1" Padding="12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                        <TextBlock Text="Explorador de Instancias" FontWeight="Bold" FontSize="15" Foreground="#38BDF8" VerticalAlignment="Center"/>
+                        <TextBlock x:Name="LblMultiSelectCount" Text="" Foreground="#2DD4BF" FontWeight="Bold" FontSize="12.5" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- Tree Toolbar -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,10">
+                        <Button x:Name="BtnAdd" Content="➕ Nuevo Script" Background="#0EA5E9" Foreground="#FFFFFF"
+                                FontWeight="SemiBold" Padding="12,6" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" IsEnabled="False" Click="BtnAdd_Click">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="5"/></Style></Button.Resources>
+                        </Button>
+                        <Button x:Name="BtnDelete" Content="🗑️ Eliminar" Background="#DC2626" Foreground="#FFFFFF"
+                                FontWeight="SemiBold" Padding="12,6" BorderThickness="0" Cursor="Hand" IsEnabled="False" Click="BtnDelete_Click">
+                            <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="5"/></Style></Button.Resources>
+                        </Button>
+                    </StackPanel>
+
+                    <!-- TreeView with Full Horizontal & Vertical Scrolling Support -->
+                    <TreeView x:Name="TreeHierarchy" Grid.Row="2" Background="#0F172A" Foreground="#F8FAFC"
+                              BorderBrush="#334155" BorderThickness="1" Padding="6"
+                              ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              SelectedItemChanged="TreeHierarchy_SelectedItemChanged"
+                              PreviewMouseDown="TreeHierarchy_PreviewMouseDown"/>
+
+                    <!-- Tip footer -->
+                    <Border Grid.Row="3" Background="#0F172A" CornerRadius="4" Padding="8,6" Margin="0,8,0,0" BorderBrush="#334155" BorderThickness="1">
+                        <TextBlock Text="💡 Clic normal selecciona un objeto. Con CTRL + Clic en una carpeta seleccionas toda su rama."
+                                   Foreground="#94A3B8" FontSize="11" TextWrapping="Wrap"/>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- Splitter -->
+            <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Center" Background="Transparent" Cursor="SizeWE"/>
+
+            <!-- Right Panel (Tabs: Editor, Properties, GUI Viewer) -->
+            <TabControl x:Name="MainTabs" Grid.Column="2" Background="#0B0F19" BorderBrush="#334155" BorderThickness="1">
+                
+                <!-- TAB 1: CODE EDITOR -->
+                <TabItem Header="📝 Editor de Código">
+                    <Grid Background="#0B0F19" Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="#1E293B" CornerRadius="6" Padding="14,10" Margin="0,0,0,10" BorderBrush="#334155" BorderThickness="1">
+                            <Grid>
+                                <TextBlock x:Name="LblScriptTitle" Text="Selecciona un script para ver o editar su código Luau"
+                                           Foreground="#38BDF8" FontWeight="Bold" FontSize="13.5" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="LblScriptMetrics" Text="" Foreground="#94A3B8"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12.5" FontWeight="SemiBold"/>
+                            </Grid>
+                        </Border>
+
+                        <TextBox x:Name="TxtEditor" Grid.Row="1" Background="#0B0F19" Foreground="#F8FAFC"
+                                 CaretBrush="#38BDF8" SelectionBrush="#0284C7"
+                                 BorderBrush="#334155" BorderThickness="1" FontFamily="Cascadia Code, Consolas" FontSize="13.5"
+                                 AcceptsReturn="True" AcceptsTab="True" TextWrapping="NoWrap"
+                                 VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                 Padding="12" TextChanged="TxtEditor_TextChanged" IsEnabled="False"/>
+                    </Grid>
+                </TabItem>
+
+                <!-- TAB 2: PROPERTIES INSPECTOR (Roblox Studio Style) -->
+                <TabItem Header="⚙️ Propiedades">
+                    <Grid Background="#0B0F19" Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="#1E293B" CornerRadius="6" Padding="14,10" Margin="0,0,0,10" BorderBrush="#334155" BorderThickness="1">
+                            <TextBlock x:Name="LblPropertiesTitle" Text="Inspector de Propiedades de Roblox Studio"
+                                       Foreground="#38BDF8" FontWeight="Bold" FontSize="13.5"/>
+                        </Border>
+
+                        <DataGrid x:Name="GridProperties" Grid.Row="1" Background="#0B0F19" Foreground="#F8FAFC"
+                                  BorderBrush="#334155" BorderThickness="1" RowBackground="#111827" AlternatingRowBackground="#0F172A"
+                                  AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False"
+                                  IsReadOnly="True" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="#1F2937"
+                                  HeadersVisibility="Column" FontSize="13">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Categoría" Binding="{Binding Category}" Width="140" Foreground="#94A3B8"/>
+                                <DataGridTextColumn Header="Propiedad" Binding="{Binding Name}" Width="160" FontWeight="Bold" Foreground="#38BDF8"/>
+                                <DataGridTextColumn Header="Valor" Binding="{Binding Value}" Width="260" Foreground="#F8FAFC"/>
+                                <DataGridTextColumn Header="Tipo" Binding="{Binding Type}" Width="100" Foreground="#A78BFA"/>
+                                <DataGridTextColumn Header="Descripción Técnica" Binding="{Binding Description}" Width="*" Foreground="#94A3B8"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+                </TabItem>
+
+                <!-- TAB 3: GUI VISUAL PREVIEWER -->
+                <TabItem Header="🖥️ Vista Previa de GUI">
+                    <Grid Background="#0B0F19" Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Background="#1E293B" CornerRadius="6" Padding="14,10" Margin="0,0,0,10" BorderBrush="#334155" BorderThickness="1">
+                            <Grid>
+                                <TextBlock x:Name="LblGuiTitle" Text="Visor Visual de ScreenGui / Interfaces 2D"
+                                           Foreground="#38BDF8" FontWeight="Bold" FontSize="13.5" VerticalAlignment="Center"/>
+                                <TextBlock Text="Simulación de Pantalla Roblox (1920x1080 Viewport)" Foreground="#94A3B8"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" FontSize="12"/>
+                            </Grid>
+                        </Border>
+
+                        <Border Grid.Row="1" Background="#020617" CornerRadius="8" BorderBrush="#334155" BorderThickness="2" ClipToBounds="True">
+                            <Canvas x:Name="GuiCanvas" Background="#050B14">
+                            </Canvas>
+                        </Border>
+                    </Grid>
+                </TabItem>
+
+            </TabControl>
+        </Grid>
+
+        <!-- ASYNC LOADING / SAVING OVERLAY MODAL -->
+        <Grid x:Name="LoadingOverlay" Grid.RowSpan="2" Background="#D9000000" Visibility="Collapsed">
+            <Border Background="#1E293B" BorderBrush="#38BDF8" BorderThickness="2" CornerRadius="12"
+                    Width="500" Height="230" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,14">
+                        <TextBlock Text="⚡" FontSize="22" Margin="0,0,10,0"/>
+                        <TextBlock x:Name="LblOverlayTitle" Text="Cargando Archivo de Roblox Studio..." FontSize="17" FontWeight="Bold" Foreground="#38BDF8"/>
+                    </StackPanel>
+
+                    <TextBlock x:Name="LblLoadingStatus" Grid.Row="1" Text="Descomprimiendo chunks binarios..."
+                               Foreground="#F8FAFC" FontSize="13.5" HorizontalAlignment="Center" Margin="0,0,0,14" TextWrapping="Wrap" TextAlignment="Center"/>
+
+                    <ProgressBar x:Name="ProgressLoading" Grid.Row="2" Height="14" Minimum="0" Maximum="100" Value="10"
+                                 Background="#0F172A" Foreground="#0284C7" BorderBrush="#334155" BorderThickness="1"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
