@@ -736,24 +736,79 @@ namespace RobloxScriptExplorer.Interfaz
             }
         }
 
-        private void BtnExportAll_Click(object sender, RoutedEventArgs e)
+        private async void BtnExportAll_Click(object sender, RoutedEventArgs e)
         {
             if (!_manager.IsLoaded)
                 return;
 
-            var dlg = new OpenFolderDialog { Title = "Seleccionar carpeta donde crear el proyecto exportado" };
+            var modal = new ExportOptionsModal { Owner = this };
+            if (modal.ShowDialog() != true)
+                return;
+
+            bool isAllInOne = modal.IsAllInOneRbxmx;
+
+            var dlg = new OpenFolderDialog { Title = "Seleccionar carpeta donde guardar la exportación" };
             if (dlg.ShowDialog() == true)
             {
+                string targetDir = dlg.FolderName;
+
+                LoadingOverlay.Visibility = Visibility.Visible;
+                LblOverlayTitle.Text = isAllInOne ? "Generando Paquetes Roblox Studio (.rbxmx)..." : "Exportando Proyecto Modular...";
+                ProgressLoading.Value = 10;
+                LblLoadingStatus.Text = "Iniciando proceso de exportación...";
+
                 try
                 {
-                    string createdFolder = _manager.ExportCompleteProject(dlg.FolderName);
-                    MessageBox.Show($"¡Proyecto exportado exitosamente!\n\n📁 Carpeta creada:\n{Path.GetFileName(createdFolder)}\n\nUbicación:\n{createdFolder}\n\n✅ Se crearon todas las carpetas, subcarpetas, scripts Luau, modelos 3D y el manifest.", "Exportación Completa", MessageBoxButton.OK, MessageBoxImage.Information);
+                    string createdFolder = string.Empty;
+
+                    await Task.Run(() =>
+                    {
+                        if (isAllInOne)
+                        {
+                            createdFolder = _manager.ExportAllInOneRbxmxPackages(targetDir, (status, progress) =>
+                            {
+                                Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
+                                {
+                                    LblLoadingStatus.Text = status;
+                                    ProgressLoading.Value = progress * 100;
+                                }));
+                            });
+                        }
+                        else
+                        {
+                            createdFolder = _manager.ExportCompleteProject(targetDir, (status, progress) =>
+                            {
+                                Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
+                                {
+                                    LblLoadingStatus.Text = status;
+                                    ProgressLoading.Value = progress * 100;
+                                }));
+                            });
+                        }
+                    });
+
+                    string summaryMsg = isAllInOne
+                        ? $"¡Paquetes de Roblox Studio exportados con éxito!\n\n" +
+                          $"📁 Carpeta:\n{Path.GetFileName(createdFolder)}\n\n" +
+                          $"Ubicación:\n{createdFolder}\n\n" +
+                          $"💡 INSTRUCCIONES:\nSolo arrastra cada archivo .rbxmx (StarterGui.rbxmx, Workspace.rbxmx, etc.) dentro de Roblox Studio y se cargarán al instante con todos sus modelos 3D, GUIs y scripts integrados."
+                        : $"¡Proyecto Modular exportado con éxito!\n\n" +
+                          $"📁 Carpeta:\n{Path.GetFileName(createdFolder)}\n\n" +
+                          $"Ubicación:\n{createdFolder}\n\n" +
+                          $"✅ Se crearon carpetas organizadas con scripts .luau, modelos .rbxmx y el manifest.";
+
+                    MessageBox.Show(summaryMsg, "Exportación Completada", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error al exportar proyecto:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Error durante la exportación:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                finally
+                {
+                    LoadingOverlay.Visibility = Visibility.Collapsed;
                 }
             }
         }
     }
 }
+

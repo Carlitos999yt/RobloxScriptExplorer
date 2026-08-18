@@ -1,0 +1,74 @@
+<Window x:Class="RobloxScriptExplorer.Interfaz.ExportOptionsModal"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Opciones de Exportación de Proyecto" Height="440" Width="580"
+        WindowStartupLocation="CenterOwner" ResizeMode="NoResize"
+        Background="#0F172A" Foreground="#F8FAFC" WindowStyle="None" AllowsTransparency="True">
+    <Border BorderBrush="#334155" BorderThickness="1.5" CornerRadius="12" Background="#0F172A" Padding="24">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Encabezado -->
+            <StackPanel Grid.Row="0" Margin="0,0,0,18">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="📦" FontSize="22" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                    <TextBlock Text="Exportar Proyecto Completo" FontSize="20" FontWeight="Bold" Foreground="#38BDF8" VerticalAlignment="Center"/>
+                </StackPanel>
+                <TextBlock Text="Selecciona cómo deseas exportar los modelos, GUIs y scripts de tu mapa:" FontSize="13" Foreground="#94A3B8" Margin="0,6,0,0"/>
+            </StackPanel>
+
+            <!-- Opciones Interactivas -->
+            <StackPanel Grid.Row="1" VerticalAlignment="Center">
+                <!-- Opción 1: Todo en Uno Roblox Studio (.rbxmx) -->
+                <Border x:Name="BorderOpt1" Background="#1E293B" BorderBrush="#0284C7" BorderThickness="2" CornerRadius="10" Padding="16" Margin="0,0,0,14" Cursor="Hand" MouseLeftButtonDown="BorderOpt1_Click">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <RadioButton x:Name="RadioAllInOne" GroupName="ExportMode" IsChecked="True" VerticalAlignment="Top" Margin="0,3,12,0" Checked="RadioAllInOne_Checked" Cursor="Hand"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="🧊 Paquetes Todo-en-Uno Roblox Studio (.rbxmx)" FontSize="15" FontWeight="Bold" Foreground="#38BDF8" x:Name="TxtTitleOpt1"/>
+                            <TextBlock Text="Genera paquetes .rbxmx independientes (StarterGui.rbxmx, Workspace.rbxmx, etc.) con TODOS los modelos 3D, interfaces visuales y scripts Luau integrados. Solo arrastras y sueltas en Roblox Studio y listo." 
+                                       FontSize="12.5" Foreground="#CBD5E1" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="18"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Opción 2: Estructura Modular / Separada -->
+                <Border x:Name="BorderOpt2" Background="#0F172A" BorderBrush="#334155" BorderThickness="1.5" CornerRadius="10" Padding="16" Cursor="Hand" MouseLeftButtonDown="BorderOpt2_Click">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <RadioButton x:Name="RadioModular" GroupName="ExportMode" IsChecked="False" VerticalAlignment="Top" Margin="0,3,12,0" Checked="RadioModular_Checked" Cursor="Hand"/>
+                        <StackPanel Grid.Column="1">
+                            <TextBlock Text="📂 Estructura Modular y Separada (.luau + .rbxmx)" FontSize="15" FontWeight="Bold" Foreground="#94A3B8" x:Name="TxtTitleOpt2"/>
+                            <TextBlock Text="Crea carpetas organizadas en Windows: scripts Luau (.luau) sueltos para editar en VS Code, modelos 3D (.rbxmx) por separado y el manifiesto JSON del proyecto." 
+                                       FontSize="12.5" Foreground="#94A3B8" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="18"/>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <!-- Botones -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button Content="Cancelar" Width="110" Height="40" Background="#334155" Foreground="#CBD5E1" FontWeight="SemiBold" FontSize="13" BorderThickness="0" Margin="0,0,12,0" Cursor="Hand" Click="BtnCancel_Click">
+                    <Button.Resources>
+                        <Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style>
+                    </Button.Resources>
+                </Button>
+                <Button Content="🚀 Continuar y Exportar" Width="190" Height="40" Background="#0284C7" Foreground="White" FontWeight="Bold" FontSize="13" BorderThickness="0" Cursor="Hand" Click="BtnContinue_Click">
+                    <Button.Resources>
+                        <Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style>
+                    </Button.Resources>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

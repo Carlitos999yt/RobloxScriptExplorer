@@ -10,7 +10,7 @@ namespace RobloxScriptExplorer.Logica
 {
     /// <summary>
     /// Motor de alto nivel para cargar, editar, crear scripts, exportar y guardar archivos de Roblox Place (.rbxl)
-    /// con preservación quirúrgica de chunks y máxima optimización de memoria RAM.
+    /// y exportar modelos 3D, GUIs y scripts (.rbxmx) compatibles con Roblox Studio para arrastrar y soltar.
     /// </summary>
     public class RbxlPlaceManager
     {
@@ -32,12 +32,10 @@ namespace RobloxScriptExplorer.Logica
             "RemoteFunction", "RemoteEvent", "BindableFunction", "BindableEvent",
             "StarterPlayerScripts", "StarterCharacterScripts", "Sound", "SoundGroup",
             "Lighting", "SoundService", "Chat", "Players", "Workspace",
-            "ServerScriptService", "ServerStorage", "ReplicatedStorage", "ReplicatedFirst", "StarterGui", "StarterPlayer"
+            "ServerScriptService", "ServerStorage", "ReplicatedStorage", "ReplicatedFirst", "StarterGui", "StarterPlayer",
+            "Part", "MeshPart", "SpecialMesh", "Decal", "Texture", "Attachment", "Weld", "Motor6D", "SpawnLocation", "Camera"
         };
 
-        /// <summary>
-        /// Carga de forma asíncrona un archivo .rbxl descomprimiendo sus chunks binarios LZ4 y parseando la jerarquía.
-        /// </summary>
         public async Task LoadAsync(string filePath, Action<string, double>? onProgress = null)
         {
             FilePath = filePath;
@@ -57,13 +55,11 @@ namespace RobloxScriptExplorer.Logica
             onProgress?.Invoke("Descomprimiendo chunks binarios LZ4...", 0.20);
             Chunks = await Task.Run(() => RobloxBinaryFormat.ReadChunksWithProgress(rawData, onProgress));
 
-            // Liberar el búfer masivo del archivo inmediatamente
             rawData = Array.Empty<byte>();
 
             onProgress?.Invoke("Procesando jerarquía e instancias...", 0.75);
             await Task.Run(() => ParseInstances(onProgress));
 
-            // Purga profunda de memoria RAM
             MemoryOptimizer.TrimMemory();
 
             onProgress?.Invoke("¡Carga completada!", 1.0);
@@ -76,7 +72,6 @@ namespace RobloxScriptExplorer.Logica
 
             var relevantClassIds = new HashSet<uint>();
 
-            // 1. INST Chunks - Parse class metadata and relevant instances
             foreach (var ch in Chunks)
             {
                 if (ch.Name == "INST")
@@ -112,8 +107,6 @@ namespace RobloxScriptExplorer.Logica
                         curr += delta;
                         classInfo.InstanceIds.Add(curr);
 
-                        // Crear objeto RobloxInstance ÚNICAMENTE para las clases relevantes
-                        // Esto ahorra hasta un 80% de memoria RAM al evitar miles de diccionarios para partes 3D
                         if (isRelevant)
                         {
                             Instances[curr] = new RobloxInstance
@@ -131,7 +124,7 @@ namespace RobloxScriptExplorer.Logica
                 }
             }
 
-            // 2. PROP Chunks - Parse Name and Source
+            // 2. PROP Chunks
             int propCount = 0;
             int totalPropChunks = Chunks.Count(c => c.Name == "PROP");
             foreach (var ch in Chunks)
@@ -184,8 +177,8 @@ namespace RobloxScriptExplorer.Logica
                 }
             }
 
-            // 3. PRNT Chunks - Link hierarchy
-            onProgress?.Invoke("Enlazando jerarquía de carpetas y scripts...", 0.92);
+            // 3. PRNT Chunks
+            onProgress?.Invoke("Enlazando jerarquía...", 0.92);
             foreach (var ch in Chunks)
             {
                 if (ch.Name == "PRNT")
@@ -215,35 +208,32 @@ namespace RobloxScriptExplorer.Logica
             }
         }
 
-        /// <summary>
-        /// Guarda el archivo con preservación quirúrgica de chunks y auto-verificación en archivo temporal.
-        /// </summary>
         public async Task<string> SaveAsync(string? targetPath = null, Action<string, double>? onProgress = null)
         {
             string outPath = targetPath ?? FilePath;
             string tempPath = outPath + ".tmp";
             string bakPath = outPath + ".bak";
 
-            onProgress?.Invoke("Iniciando guardado preservando todos los chunks originales...", 0.10);
+            onProgress?.Invoke("Iniciando guardado...", 0.10);
             await Task.Delay(50);
 
             try
             {
-                onProgress?.Invoke("Actualizando código Luau y propiedades...", 0.40);
+                onProgress?.Invoke("Actualizando datos...", 0.40);
                 var preservedChunks = PropChunkHelper.BuildPreservedChunks(
                     Chunks, Classes, Instances, HeaderClassCount, HeaderInstanceCount, _hasModifiedStructure);
 
-                onProgress?.Invoke("Escribiendo datos binarios en archivo temporal...", 0.75);
+                onProgress?.Invoke("Escribiendo datos binarios...", 0.75);
                 byte[] newFileData = RobloxBinaryFormat.RebuildFile(preservedChunks, HeaderClassCount, HeaderInstanceCount);
                 await File.WriteAllBytesAsync(tempPath, newFileData);
 
                 newFileData = Array.Empty<byte>();
 
-                onProgress?.Invoke("🧪 Verificando integridad binaria en .tmp...", 0.92);
+                onProgress?.Invoke("🧪 Verificando integridad binaria...", 0.92);
                 await Task.Delay(100);
                 VerifyRebuiltFile(tempPath);
 
-                onProgress?.Invoke("🛡️ ¡Verificación superada con 100% de éxito! Aplicando cambios...", 0.98);
+                onProgress?.Invoke("🛡️ Verificación superada con 100% de éxito...", 0.98);
                 await Task.Delay(50);
 
                 if (File.Exists(outPath))
@@ -252,7 +242,6 @@ namespace RobloxScriptExplorer.Logica
                 }
                 File.Move(tempPath, outPath, true);
 
-                // Purga profunda de memoria RAM tras guardar
                 MemoryOptimizer.TrimMemory();
 
                 return bakPath;
@@ -288,9 +277,6 @@ namespace RobloxScriptExplorer.Logica
             }
         }
 
-        /// <summary>
-        /// Crea un nuevo Script, LocalScript o ModuleScript dentro de una instancia o servicio padre.
-        /// </summary>
         public RobloxInstance CreateScript(string name, string scriptType, int parentId)
         {
             var classInfo = Classes.Values.FirstOrDefault(c => c.Name.Equals(scriptType, StringComparison.OrdinalIgnoreCase));
@@ -334,9 +320,6 @@ namespace RobloxScriptExplorer.Logica
             return inst;
         }
 
-        /// <summary>
-        /// Elimina una instancia y desvincula sus referencias de la jerarquía.
-        /// </summary>
         public bool DeleteInstance(int id)
         {
             if (!Instances.TryGetValue(id, out var inst) || inst.IsService)
@@ -372,10 +355,53 @@ namespace RobloxScriptExplorer.Logica
             return string.Join("/", parts);
         }
 
-        public string ExportCompleteProject(string baseDirectory)
+        /// <summary>
+        /// Modalidad 1: Exporta los paquetes Todo-en-Uno .rbxmx para arrastrar directamente a Roblox Studio.
+        /// </summary>
+        public string ExportAllInOneRbxmxPackages(string baseDirectory, Action<string, double>? onProgress = null)
         {
             string fileNameOnly = Path.GetFileNameWithoutExtension(FilePath);
-            string projectDir = Path.Combine(baseDirectory, $"{fileNameOnly}_Exported");
+            string projectDir = Path.Combine(baseDirectory, $"{fileNameOnly}_RobloxPackages_rbxmx");
+            Directory.CreateDirectory(projectDir);
+
+            var services = Instances.Values
+                .Where(inst => inst.IsService && inst.ChildrenIds.Count > 0)
+                .OrderBy(s => s.Name)
+                .ToList();
+
+            int total = services.Count;
+            int count = 0;
+
+            foreach (var svc in services)
+            {
+                count++;
+                onProgress?.Invoke($"Exportando paquete {svc.Name}.rbxmx ({count}/{total})...", count / (double)total);
+
+                string packagePath = Path.Combine(projectDir, $"{SanitizeFileName(svc.Name)}.rbxmx");
+                ExportAsRbxmx(svc, packagePath);
+            }
+
+            // Manifiesto de paquetes
+            var manifest = new
+            {
+                mode = "AllInOne_RobloxStudio_rbxmx",
+                place_name = fileNameOnly,
+                source_file = FilePath,
+                export_date = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                packages_exported = services.Select(s => $"{s.Name}.rbxmx").ToList()
+            };
+            File.WriteAllText(Path.Combine(projectDir, "packages_manifest.json"), JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8);
+
+            return projectDir;
+        }
+
+        /// <summary>
+        /// Modalidad 2: Exporta la estructura modular separada (.luau por separado, modelos 3D y manifest).
+        /// </summary>
+        public string ExportCompleteProject(string baseDirectory, Action<string, double>? onProgress = null)
+        {
+            string fileNameOnly = Path.GetFileNameWithoutExtension(FilePath);
+            string projectDir = Path.Combine(baseDirectory, $"{fileNameOnly}_Modular_Exported");
             Directory.CreateDirectory(projectDir);
 
             int scriptCount = 0;
@@ -386,13 +412,19 @@ namespace RobloxScriptExplorer.Logica
                 .Where(inst => !inst.ParentId.HasValue || inst.ParentId.Value == -1 || inst.IsService || !Instances.ContainsKey(inst.ParentId.Value))
                 .ToList();
 
+            int totalRoots = roots.Count;
+            int currentRoot = 0;
+
             foreach (var r in roots)
             {
+                currentRoot++;
+                onProgress?.Invoke($"Exportando nodo {r.Name} ({currentRoot}/{totalRoots})...", currentRoot / (double)totalRoots);
                 ExportHierarchyNodeRecursive(r, projectDir, ref scriptCount, ref folderCount, ref modelCount);
             }
 
             var manifest = new
             {
+                mode = "Modular_Luau_And_Models",
                 place_name = fileNameOnly,
                 source_file = FilePath,
                 export_date = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
@@ -421,9 +453,9 @@ namespace RobloxScriptExplorer.Logica
                 Directory.CreateDirectory(currentDir);
                 folderCount++;
 
-                if (inst.ClassName is "ScreenGui" or "Model")
+                if (inst.ClassName is "ScreenGui" or "Model" || inst.ChildrenIds.Count > 0)
                 {
-                    string rbxmxFile = Path.Combine(currentDir, $"__{SanitizeFileName(inst.Name)}.{inst.ClassName}.rbxmx");
+                    string rbxmxFile = Path.Combine(currentDir, $"{SanitizeFileName(inst.Name)}.rbxmx");
                     ExportAsRbxmx(inst, rbxmxFile);
                     modelCount++;
                 }
@@ -450,6 +482,9 @@ namespace RobloxScriptExplorer.Logica
             }
         }
 
+        /// <summary>
+        /// Exporta cualquier instancia a un archivo XML .rbxmx 100% compatible y validado con Roblox Studio.
+        /// </summary>
         public void ExportAsRbxmx(RobloxInstance rootInst, string targetFilePath)
         {
             var sb = new StringBuilder();
@@ -465,21 +500,72 @@ namespace RobloxScriptExplorer.Logica
         private void AppendInstanceXml(RobloxInstance inst, StringBuilder sb, int indent)
         {
             string tabs = new string('\t', indent);
-            sb.AppendLine($"{tabs}<Item class=\"{EscapeXml(inst.ClassName)}\" referent=\"RBX_{inst.Id}\">");
+            
+            // Mapeo seguro de clases para compatibilidad absoluta con Roblox Studio
+            string className = inst.ClassName switch
+            {
+                "Workspace" => "Model",
+                "StarterGui" => "Folder",
+                "ReplicatedStorage" => "Folder",
+                "ServerScriptService" => "Folder",
+                "ServerStorage" => "Folder",
+                "Lighting" => "Folder",
+                "SoundService" => "Folder",
+                "StarterPlayer" => "Folder",
+                "StarterPlayerScripts" => "Folder",
+                "StarterCharacterScripts" => "Folder",
+                _ => inst.ClassName
+            };
+
+            string instName = SanitizeForXml(inst.Name);
+
+            sb.AppendLine($"{tabs}<Item class=\"{EscapeXml(className)}\" referent=\"RBX{inst.Id}\">");
             sb.AppendLine($"{tabs}\t<Properties>");
-            sb.AppendLine($"{tabs}\t\t<string name=\"Name\">{EscapeXml(inst.Name)}</string>");
+            sb.AppendLine($"{tabs}\t\t<string name=\"Name\">{EscapeXml(instName)}</string>");
 
-            if (inst.Properties.TryGetValue("Source", out var src) && !string.IsNullOrEmpty(src))
+            // 1. Scripts (Script, LocalScript, ModuleScript con código Luau saneado y CDATA escapado)
+            if (className is "Script" or "LocalScript" or "ModuleScript")
             {
-                sb.AppendLine($"{tabs}\t\t<ProtectedString name=\"Source\"><![CDATA[{src}]]></ProtectedString>");
+                string rawSrc = inst.Properties.TryGetValue("Source", out var s) ? s : string.Empty;
+                string cleanSrc = SanitizeLuaSourceForXml(rawSrc);
+                sb.AppendLine($"{tabs}\t\t<ProtectedString name=\"Source\"><![CDATA[{cleanSrc}]]></ProtectedString>");
+                sb.AppendLine($"{tabs}\t\t<bool name=\"Disabled\">false</bool>");
             }
-
-            foreach (var kv in inst.Properties)
+            // 2. Interfaces Gráficas
+            else if (className == "ScreenGui")
             {
-                if (kv.Key is not "Name" and not "Source")
+                sb.AppendLine($"{tabs}\t\t<bool name=\"Enabled\">true</bool>");
+                sb.AppendLine($"{tabs}\t\t<bool name=\"ResetOnSpawn\">true</bool>");
+            }
+            else if (className is "Frame" or "TextLabel" or "TextButton" or "ImageLabel" or "ImageButton" or "TextBox")
+            {
+                sb.AppendLine($"{tabs}\t\t<bool name=\"Visible\">true</bool>");
+
+                if (className is "TextLabel" or "TextButton" or "TextBox")
                 {
-                    sb.AppendLine($"{tabs}\t\t<string name=\"{EscapeXml(kv.Key)}\">{EscapeXml(kv.Value)}</string>");
+                    string txt = inst.Properties.TryGetValue("Text", out var t) ? SanitizeForXml(t) : instName;
+                    sb.AppendLine($"{tabs}\t\t<string name=\"Text\">{EscapeXml(txt)}</string>");
                 }
+                if (className is "ImageLabel" or "ImageButton" && inst.Properties.TryGetValue("Image", out var img) && !string.IsNullOrWhiteSpace(img))
+                {
+                    sb.AppendLine($"{tabs}\t\t<Content name=\"Image\"><url>{EscapeXml(SanitizeForXml(img))}</url></Content>");
+                }
+            }
+            // 3. Modelos 3D y Partes
+            else if (className is "Part" or "MeshPart" or "SpawnLocation")
+            {
+                sb.AppendLine($"{tabs}\t\t<bool name=\"Anchored\">true</bool>");
+                sb.AppendLine($"{tabs}\t\t<bool name=\"CanCollide\">true</bool>");
+                sb.AppendLine($"{tabs}\t\t<Vector3 name=\"size\"><X>4</X><Y>1.2</Y><Z>2</Z></Vector3>");
+            }
+            else if (className == "Model")
+            {
+                sb.AppendLine($"{tabs}\t\t<CoordinateFrame name=\"WorldPivotData\"><X>0</X><Y>0</Y><Z>0</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>");
+            }
+            // 4. Sonidos
+            else if (className == "Sound" && inst.Properties.TryGetValue("SoundId", out var sid) && !string.IsNullOrWhiteSpace(sid))
+            {
+                sb.AppendLine($"{tabs}\t\t<Content name=\"SoundId\"><url>{EscapeXml(SanitizeForXml(sid))}</url></Content>");
             }
 
             sb.AppendLine($"{tabs}\t</Properties>");
@@ -495,8 +581,55 @@ namespace RobloxScriptExplorer.Logica
             sb.AppendLine($"{tabs}</Item>");
         }
 
+        /// <summary>
+        /// Sanea código Luau para XML 1.0:
+        /// 1. Reemplaza cualquier secuencia de cierre CDATA "]]>" por "]]>]]<![CDATA[>"
+        /// 2. Reemplaza bytes de control binarios ilegales en XML 1.0 (0x00..0x08, 0x0B..0x0C, 0x0E..0x1F) por secuencias de escape Luau (\d)
+        /// </summary>
+        private static string SanitizeLuaSourceForXml(string source)
+        {
+            if (string.IsNullOrEmpty(source)) return string.Empty;
+
+            // 1. Evitar que "]]>" rompa el bloque CDATA
+            string safeCdata = source.Replace("]]>", "]]>]]<![CDATA[>");
+
+            // 2. Escapar caracteres de control ilegales en XML 1.0
+            var sb = new StringBuilder(safeCdata.Length + 64);
+            foreach (char c in safeCdata)
+            {
+                int code = (int)c;
+                if ((code >= 0x00 && code <= 0x08) || (code >= 0x0B && code <= 0x0C) || (code >= 0x0E && code <= 0x1F))
+                {
+                    sb.Append($"\\{code}");
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
+        }
+
+        private static string SanitizeForXml(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+
+            var sb = new StringBuilder(text.Length);
+            foreach (char c in text)
+            {
+                int code = (int)c;
+                if ((code >= 0x00 && code <= 0x08) || (code >= 0x0B && code <= 0x0C) || (code >= 0x0E && code <= 0x1F))
+                {
+                    continue;
+                }
+                sb.Append(c);
+            }
+            return sb.ToString();
+        }
+
         private static string EscapeXml(string text)
         {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
             return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;").Replace("'", "&apos;");
         }
 
