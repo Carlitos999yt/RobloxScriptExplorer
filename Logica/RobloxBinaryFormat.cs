@@ -9,8 +9,11 @@ namespace RobloxScriptExplorer.Logica
     {
         public string Name { get; set; } = string.Empty;
         public byte[] Data { get; set; } = Array.Empty<byte>();
+        public byte[] RawCompressedData { get; set; } = Array.Empty<byte>();
         public uint CompLen { get; set; }
         public uint UncompLen { get; set; }
+        public uint Reserved { get; set; }
+        public bool IsModified { get; set; } = false;
     }
 
     public static class RobloxBinaryFormat
@@ -91,29 +94,33 @@ namespace RobloxScriptExplorer.Logica
                 string chunkName = Encoding.Latin1.GetString(fileData, pos, 4);
                 uint compLen = BitConverter.ToUInt32(fileData, pos + 4);
                 uint uncompLen = BitConverter.ToUInt32(fileData, pos + 8);
+                uint reserved = BitConverter.ToUInt32(fileData, pos + 12);
                 pos += 16;
 
-                byte[] chunkData;
+                int readLen = compLen > 0 ? (int)compLen : (int)uncompLen;
+                byte[] rawChunkBytes = new byte[readLen];
+                Buffer.BlockCopy(fileData, pos, rawChunkBytes, 0, readLen);
+                pos += readLen;
+
+                byte[] uncompData;
                 if (compLen > 0)
                 {
-                    byte[] compData = new byte[compLen];
-                    Buffer.BlockCopy(fileData, pos, compData, 0, (int)compLen);
-                    chunkData = Lz4BlockCodec.Decompress(compData, (int)uncompLen);
-                    pos += (int)compLen;
+                    uncompData = Lz4BlockCodec.Decompress(rawChunkBytes, (int)uncompLen);
                 }
                 else
                 {
-                    chunkData = new byte[uncompLen];
-                    Buffer.BlockCopy(fileData, pos, chunkData, 0, (int)uncompLen);
-                    pos += (int)uncompLen;
+                    uncompData = rawChunkBytes;
                 }
 
                 chunks.Add(new RobloxChunk
                 {
                     Name = chunkName,
-                    Data = chunkData,
+                    Data = uncompData,
+                    RawCompressedData = rawChunkBytes,
                     CompLen = compLen,
-                    UncompLen = uncompLen
+                    UncompLen = uncompLen,
+                    Reserved = reserved,
+                    IsModified = false
                 });
 
                 chunkIndex++;
@@ -147,17 +154,52 @@ namespace RobloxScriptExplorer.Logica
             foreach (var ch in chunks)
             {
                 byte[] nameBytes = Encoding.Latin1.GetBytes(ch.Name.PadRight(4, '\0').Substring(0, 4));
-                byte[] uncompData = ch.Data;
-                uint uncompLen = (uint)uncompData.Length;
 
-                byte[] compData = Lz4BlockCodec.Compress(uncompData);
-                uint compLen = (uint)compData.Length;
+                if (!ch.IsModified && ch.RawCompressedData != null && ch.RawCompressedData.Length > 0)
+                {
+                    // Preservación Quirúrgica 100% Exacta Byte-por-Byte de los datos originales
+                    ms.Write(nameBytes, 0, 4);
+                    ms.Write(BitConverter.GetBytes(ch.CompLen), 0, 4);
+                    ms.Write(BitConverter.GetBytes(ch.UncompLen), 0, 4);
+                    ms.Write(BitConverter.GetBytes(ch.Reserved), 0, 4);
+                    ms.Write(ch.RawCompressedData, 0, ch.RawCompressedData.Length);
+                }
+                else
+                {
+                    // Chunk nuevo o modificado
+                    byte[] uncompData = ch.Data;
+                    uint uncompLen = (uint)uncompData.Length;
 
-                ms.Write(nameBytes, 0, 4);
-                ms.Write(BitConverter.GetBytes(compLen), 0, 4);
-                ms.Write(BitConverter.GetBytes(uncompLen), 0, 4);
-                ms.Write(BitConverter.GetBytes(0u), 0, 4);
-                ms.Write(compData, 0, compData.Length);
+                    if (uncompLen < 32)
+                    {
+                        ms.Write(nameBytes, 0, 4);
+                        ms.Write(BitConverter.GetBytes(0u), 0, 4);
+                        ms.Write(BitConverter.GetBytes(uncompLen), 0, 4);
+                        ms.Write(BitConverter.GetBytes(0u), 0, 4);
+                        ms.Write(uncompData, 0, uncompData.Length);
+                    }
+                    else
+                    {
+                        byte[] compData = Lz4BlockCodec.Compress(uncompData);
+                        if (compData.Length >= uncompLen)
+                        {
+                            ms.Write(nameBytes, 0, 4);
+                            ms.Write(BitConverter.GetBytes(0u), 0, 4);
+                            ms.Write(BitConverter.GetBytes(uncompLen), 0, 4);
+                            ms.Write(BitConverter.GetBytes(0u), 0, 4);
+                            ms.Write(uncompData, 0, uncompData.Length);
+                        }
+                        else
+                        {
+                            uint compLen = (uint)compData.Length;
+                            ms.Write(nameBytes, 0, 4);
+                            ms.Write(BitConverter.GetBytes(compLen), 0, 4);
+                            ms.Write(BitConverter.GetBytes(uncompLen), 0, 4);
+                            ms.Write(BitConverter.GetBytes(0u), 0, 4);
+                            ms.Write(compData, 0, compData.Length);
+                        }
+                    }
+                }
             }
 
             return ms.ToArray();

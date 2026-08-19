@@ -10,7 +10,7 @@ namespace RobloxScriptExplorer.Logica
 {
     /// <summary>
     /// Motor de alto nivel para cargar, editar, crear scripts, exportar y guardar archivos de Roblox Place (.rbxl)
-    /// y exportar modelos 3D, GUIs y scripts (.rbxmx) compatibles con Roblox Studio para arrastrar y soltar.
+    /// con Preservación Quirúrgica del 100% de Chunks intactos.
     /// </summary>
     public class RbxlPlaceManager
     {
@@ -18,6 +18,7 @@ namespace RobloxScriptExplorer.Logica
         public List<RobloxChunk> Chunks { get; private set; } = new();
         public Dictionary<uint, RobloxClassInfo> Classes { get; } = new();
         public Dictionary<int, RobloxInstance> Instances { get; } = new();
+        public HashSet<int> ModifiedInstanceIds { get; } = new();
         public int HeaderClassCount { get; private set; } = 0;
         public int HeaderInstanceCount { get; private set; } = 0;
         public bool IsLoaded => Instances.Count > 0;
@@ -40,6 +41,7 @@ namespace RobloxScriptExplorer.Logica
         {
             FilePath = filePath;
             _hasModifiedStructure = false;
+            ModifiedInstanceIds.Clear();
             onProgress?.Invoke("Leyendo archivo de disco...", 0.05);
 
             byte[] rawData = await File.ReadAllBytesAsync(filePath);
@@ -220,8 +222,18 @@ namespace RobloxScriptExplorer.Logica
             try
             {
                 onProgress?.Invoke("Actualizando datos...", 0.40);
-                var preservedChunks = PropChunkHelper.BuildPreservedChunks(
-                    Chunks, Classes, Instances, HeaderClassCount, HeaderInstanceCount, _hasModifiedStructure);
+                
+                List<RobloxChunk> preservedChunks;
+                if (!_hasModifiedStructure && ModifiedInstanceIds.Count == 0)
+                {
+                    // Ningún cambio realizado: Preservación Quirúrgica 100% Intacta
+                    preservedChunks = Chunks;
+                }
+                else
+                {
+                    preservedChunks = PropChunkHelper.BuildPreservedChunks(
+                        Chunks, Classes, Instances, HeaderClassCount, HeaderInstanceCount, _hasModifiedStructure);
+                }
 
                 onProgress?.Invoke("Escribiendo datos binarios...", 0.75);
                 byte[] newFileData = RobloxBinaryFormat.RebuildFile(preservedChunks, HeaderClassCount, HeaderInstanceCount);
@@ -311,6 +323,7 @@ namespace RobloxScriptExplorer.Logica
             classInfo.Count++;
             HeaderInstanceCount++;
             _hasModifiedStructure = true;
+            ModifiedInstanceIds.Add(newId);
 
             if (Instances.TryGetValue(parentId, out var parentInst))
             {
@@ -339,6 +352,7 @@ namespace RobloxScriptExplorer.Logica
             Instances.Remove(id);
             if (HeaderInstanceCount > 0) HeaderInstanceCount--;
             _hasModifiedStructure = true;
+            ModifiedInstanceIds.Add(id);
             return true;
         }
 
@@ -355,9 +369,6 @@ namespace RobloxScriptExplorer.Logica
             return string.Join("/", parts);
         }
 
-        /// <summary>
-        /// Modalidad 1: Exporta los paquetes Todo-en-Uno .rbxmx para arrastrar directamente a Roblox Studio.
-        /// </summary>
         public string ExportAllInOneRbxmxPackages(string baseDirectory, Action<string, double>? onProgress = null)
         {
             string fileNameOnly = Path.GetFileNameWithoutExtension(FilePath);
@@ -381,7 +392,6 @@ namespace RobloxScriptExplorer.Logica
                 ExportAsRbxmx(svc, packagePath);
             }
 
-            // Manifiesto de paquetes
             var manifest = new
             {
                 mode = "AllInOne_RobloxStudio_rbxmx",
@@ -395,9 +405,6 @@ namespace RobloxScriptExplorer.Logica
             return projectDir;
         }
 
-        /// <summary>
-        /// Modalidad 2: Exporta la estructura modular separada (.luau por separado, modelos 3D y manifest).
-        /// </summary>
         public string ExportCompleteProject(string baseDirectory, Action<string, double>? onProgress = null)
         {
             string fileNameOnly = Path.GetFileNameWithoutExtension(FilePath);
@@ -482,9 +489,6 @@ namespace RobloxScriptExplorer.Logica
             }
         }
 
-        /// <summary>
-        /// Exporta cualquier instancia a un archivo XML .rbxmx 100% compatible y validado con Roblox Studio.
-        /// </summary>
         public void ExportAsRbxmx(RobloxInstance rootInst, string targetFilePath)
         {
             var sb = new StringBuilder();
@@ -501,7 +505,6 @@ namespace RobloxScriptExplorer.Logica
         {
             string tabs = new string('\t', indent);
             
-            // Mapeo seguro de clases para compatibilidad absoluta con Roblox Studio
             string className = inst.ClassName switch
             {
                 "Workspace" => "Model",
@@ -523,15 +526,16 @@ namespace RobloxScriptExplorer.Logica
             sb.AppendLine($"{tabs}\t<Properties>");
             sb.AppendLine($"{tabs}\t\t<string name=\"Name\">{EscapeXml(instName)}</string>");
 
-            // 1. Scripts (Script, LocalScript, ModuleScript con código Luau saneado y CDATA escapado)
             if (className is "Script" or "LocalScript" or "ModuleScript")
             {
                 string rawSrc = inst.Properties.TryGetValue("Source", out var s) ? s : string.Empty;
                 string cleanSrc = SanitizeLuaSourceForXml(rawSrc);
                 sb.AppendLine($"{tabs}\t\t<ProtectedString name=\"Source\"><![CDATA[{cleanSrc}]]></ProtectedString>");
-                sb.AppendLine($"{tabs}\t\t<bool name=\"Disabled\">false</bool>");
+                if (className is "Script" or "LocalScript")
+                {
+                    sb.AppendLine($"{tabs}\t\t<bool name=\"Disabled\">false</bool>");
+                }
             }
-            // 2. Interfaces Gráficas
             else if (className == "ScreenGui")
             {
                 sb.AppendLine($"{tabs}\t\t<bool name=\"Enabled\">true</bool>");
@@ -551,7 +555,6 @@ namespace RobloxScriptExplorer.Logica
                     sb.AppendLine($"{tabs}\t\t<Content name=\"Image\"><url>{EscapeXml(SanitizeForXml(img))}</url></Content>");
                 }
             }
-            // 3. Modelos 3D y Partes
             else if (className is "Part" or "MeshPart" or "SpawnLocation")
             {
                 sb.AppendLine($"{tabs}\t\t<bool name=\"Anchored\">true</bool>");
@@ -562,7 +565,6 @@ namespace RobloxScriptExplorer.Logica
             {
                 sb.AppendLine($"{tabs}\t\t<CoordinateFrame name=\"WorldPivotData\"><X>0</X><Y>0</Y><Z>0</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>");
             }
-            // 4. Sonidos
             else if (className == "Sound" && inst.Properties.TryGetValue("SoundId", out var sid) && !string.IsNullOrWhiteSpace(sid))
             {
                 sb.AppendLine($"{tabs}\t\t<Content name=\"SoundId\"><url>{EscapeXml(SanitizeForXml(sid))}</url></Content>");
@@ -581,19 +583,12 @@ namespace RobloxScriptExplorer.Logica
             sb.AppendLine($"{tabs}</Item>");
         }
 
-        /// <summary>
-        /// Sanea código Luau para XML 1.0:
-        /// 1. Reemplaza cualquier secuencia de cierre CDATA "]]>" por "]]>]]<![CDATA[>"
-        /// 2. Reemplaza bytes de control binarios ilegales en XML 1.0 (0x00..0x08, 0x0B..0x0C, 0x0E..0x1F) por secuencias de escape Luau (\d)
-        /// </summary>
         private static string SanitizeLuaSourceForXml(string source)
         {
             if (string.IsNullOrEmpty(source)) return string.Empty;
 
-            // 1. Evitar que "]]>" rompa el bloque CDATA
             string safeCdata = source.Replace("]]>", "]]>]]<![CDATA[>");
 
-            // 2. Escapar caracteres de control ilegales en XML 1.0
             var sb = new StringBuilder(safeCdata.Length + 64);
             foreach (char c in safeCdata)
             {

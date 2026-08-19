@@ -521,6 +521,7 @@ namespace RobloxScriptExplorer.Interfaz
             {
                 string code = TxtEditor.Text;
                 _selectedInstance.Properties["Source"] = code;
+                _manager.ModifiedInstanceIds.Add(_selectedInstance.Id);
                 UpdateMetrics(code);
             }
         }
