@@ -141,13 +141,12 @@ namespace RobloxScriptExplorer.Logica
         {
             using var ms = new MemoryStream();
 
-            // Exact 32-byte Roblox Binary Header
+            // 32-byte Header
             byte[] header = new byte[32];
             Buffer.BlockCopy(RobloxMagic, 0, header, 0, 14);
             Buffer.BlockCopy(BitConverter.GetBytes((ushort)0), 0, header, 14, 2);       // Version
             Buffer.BlockCopy(BitConverter.GetBytes((uint)classCount), 0, header, 16, 4); // ClassCount
             Buffer.BlockCopy(BitConverter.GetBytes((uint)instanceCount), 0, header, 20, 4); // InstanceCount
-            // Bytes 24..32: 8 zeros reserved
 
             ms.Write(header, 0, 32);
 
@@ -166,39 +165,16 @@ namespace RobloxScriptExplorer.Logica
                 }
                 else
                 {
-                    // Chunk nuevo o modificado
+                    // Chunk nuevo o modificado: Escribir como raw uncompressed (CompLen = 0)
+                    // Garantiza 0% de errores de descompresión LZ4 en Roblox Studio
                     byte[] uncompData = ch.Data;
                     uint uncompLen = (uint)uncompData.Length;
 
-                    if (uncompLen < 32)
-                    {
-                        ms.Write(nameBytes, 0, 4);
-                        ms.Write(BitConverter.GetBytes(0u), 0, 4);
-                        ms.Write(BitConverter.GetBytes(uncompLen), 0, 4);
-                        ms.Write(BitConverter.GetBytes(0u), 0, 4);
-                        ms.Write(uncompData, 0, uncompData.Length);
-                    }
-                    else
-                    {
-                        byte[] compData = Lz4BlockCodec.Compress(uncompData);
-                        if (compData.Length >= uncompLen)
-                        {
-                            ms.Write(nameBytes, 0, 4);
-                            ms.Write(BitConverter.GetBytes(0u), 0, 4);
-                            ms.Write(BitConverter.GetBytes(uncompLen), 0, 4);
-                            ms.Write(BitConverter.GetBytes(0u), 0, 4);
-                            ms.Write(uncompData, 0, uncompData.Length);
-                        }
-                        else
-                        {
-                            uint compLen = (uint)compData.Length;
-                            ms.Write(nameBytes, 0, 4);
-                            ms.Write(BitConverter.GetBytes(compLen), 0, 4);
-                            ms.Write(BitConverter.GetBytes(uncompLen), 0, 4);
-                            ms.Write(BitConverter.GetBytes(0u), 0, 4);
-                            ms.Write(compData, 0, compData.Length);
-                        }
-                    }
+                    ms.Write(nameBytes, 0, 4);
+                    ms.Write(BitConverter.GetBytes(0u), 0, 4); // CompLen = 0 (Uncompressed)
+                    ms.Write(BitConverter.GetBytes(uncompLen), 0, 4);
+                    ms.Write(BitConverter.GetBytes(0u), 0, 4);
+                    ms.Write(uncompData, 0, uncompData.Length);
                 }
             }
 
