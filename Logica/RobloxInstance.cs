@@ -28,6 +28,8 @@ namespace RobloxScriptExplorer.Logica
         public bool IsService { get; set; }
         public List<int> ChildrenIds { get; } = new();
         public Dictionary<string, string> Properties { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, string> XmlProperties { get; } = new(StringComparer.OrdinalIgnoreCase);
+
 
         public bool IsScript => ClassName is "Script" or "LocalScript" or "ModuleScript";
         public bool IsGui => ClassName is "ScreenGui" or "Frame" or "TextLabel" or "TextButton" or "ImageLabel" or "ImageButton" or "TextBox" or "UIAspectRatioConstraint" or "UICorner" or "UIGradient" or "UIPadding";

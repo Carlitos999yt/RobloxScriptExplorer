@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -150,28 +151,211 @@ namespace RobloxScriptExplorer.Logica
                     byte ptype = d[8 + pnameLen];
                     int pdataOffset = 9 + pnameLen;
 
-                    if (Classes.TryGetValue(cid, out var cinfo) && ptype == 0x01)
+                    if (Classes.TryGetValue(cid, out var cinfo))
                     {
-                        int spos = pdataOffset;
-                        foreach (int iId in cinfo.InstanceIds)
-                        {
-                            if (spos + 4 <= d.Length)
-                            {
-                                int slen = (int)BitConverter.ToUInt32(d, spos);
-                                spos += 4;
-                                if (spos + slen <= d.Length)
-                                {
-                                    string sval = Encoding.UTF8.GetString(d, spos, slen);
-                                    spos += slen;
+                        int count = cinfo.InstanceIds.Count;
 
-                                    if (Instances.TryGetValue(iId, out var inst))
+                        // 1. Strings (0x01)
+                        if (ptype == 0x01)
+                        {
+                            int spos = pdataOffset;
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (spos + 4 <= d.Length)
+                                {
+                                    int slen = (int)BitConverter.ToUInt32(d, spos);
+                                    spos += 4;
+                                    if (spos + slen <= d.Length)
                                     {
-                                        inst.Properties[pname] = sval;
-                                        if (pname.Equals("Name", StringComparison.OrdinalIgnoreCase))
+                                        string sval = Encoding.UTF8.GetString(d, spos, slen);
+                                        spos += slen;
+
+                                        int iId = cinfo.InstanceIds[i];
+                                        if (Instances.TryGetValue(iId, out var inst))
                                         {
-                                            inst.Name = sval;
+                                            inst.Properties[pname] = sval;
+                                            if (pname.Equals("Name", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                inst.Name = sval;
+                                            }
+                                            else if (pname is "Texture" or "MeshId" or "TextureID" or "TextureId" or "Image" or "HoverImage" or "PressedImage" or "SoundId" or "AnimationId" or "PantsTemplate" or "ShirtTemplate" or "Graphic" or "ColorMap" or "MetalnessMap" or "NormalMap" or "RoughnessMap" or "SkyboxBk" or "SkyboxDn" or "SkyboxFt" or "SkyboxLf" or "SkyboxRt" or "SkyboxUp" or "SunTextureId" or "MoonTextureId" or "Video"
+                                                     || ((sval.StartsWith("rbxasset", StringComparison.OrdinalIgnoreCase) || sval.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || sval.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) && pname != "Source" && pname != "LinkedSource"))
+                                            {
+                                                if (!string.IsNullOrWhiteSpace(sval))
+                                                    inst.XmlProperties[pname] = $"<Content name=\"{pname}\"><url>{EscapeXml(sval)}</url></Content>";
+                                                else
+                                                    inst.XmlProperties[pname] = $"<Content name=\"{pname}\"><null></null></Content>";
+                                            }
+                                            else if (pname != "AttributesSerialize" && pname != "PhysicsData")
+                                            {
+                                                inst.XmlProperties[pname] = $"<string name=\"{pname}\">{EscapeXml(SanitizeForXml(sval))}</string>";
+                                            }
                                         }
                                     }
+                                }
+                            }
+                        }
+                        // 2. Bool (0x02)
+                        else if (ptype == 0x02 && pdataOffset + count <= d.Length)
+                        {
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    bool bval = d[pdataOffset + i] != 0;
+                                    inst.Properties[pname] = bval.ToString().ToLowerInvariant();
+                                    inst.XmlProperties[pname] = $"<bool name=\"{pname}\">{bval.ToString().ToLowerInvariant()}</bool>";
+                                }
+                            }
+                        }
+                        // 3. Int32 (0x03)
+                        else if (ptype == 0x03 && pdataOffset + count * 4 <= d.Length)
+                        {
+                            var ints = DecodeInt32Array(d, pdataOffset, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    inst.Properties[pname] = ints[i].ToString();
+                                    inst.XmlProperties[pname] = $"<int name=\"{pname}\">{ints[i]}</int>";
+                                }
+                            }
+                        }
+                        // 4. Float32 (0x04)
+                        else if (ptype == 0x04 && pdataOffset + count * 4 <= d.Length)
+                        {
+                            var floats = DecodeFloatArray(d, pdataOffset, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    float fval = floats[i];
+                                    inst.Properties[pname] = fval.ToString("G9", CultureInfo.InvariantCulture);
+                                    inst.XmlProperties[pname] = $"<float name=\"{pname}\">{fval.ToString("G9", CultureInfo.InvariantCulture)}</float>";
+                                }
+                            }
+                        }
+                        // 5. UDim2 (0x07)
+                        else if (ptype == 0x07 && pdataOffset + count * 16 <= d.Length)
+                        {
+                            float[] sxs = DecodeFloatArray(d, pdataOffset + 0 * count * 4, count);
+                            float[] sys = DecodeFloatArray(d, pdataOffset + 1 * count * 4, count);
+                            int[] oxs = DecodeInt32Array(d, pdataOffset + 2 * count * 4, count);
+                            int[] oys = DecodeInt32Array(d, pdataOffset + 3 * count * 4, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    inst.XmlProperties[pname] = $"<UDim2 name=\"{pname}\"><XS>{sxs[i].ToString("G9", CultureInfo.InvariantCulture)}</XS><XO>{oxs[i]}</XO><YS>{sys[i].ToString("G9", CultureInfo.InvariantCulture)}</YS><YO>{oys[i]}</YO></UDim2>";
+                                }
+                            }
+                        }
+                        // 6. Color3 float RGB (0x0C)
+                        else if (ptype == 0x0C && pdataOffset + count * 12 <= d.Length)
+                        {
+                            float[] rs = DecodeFloatArray(d, pdataOffset + 0 * count * 4, count);
+                            float[] gs = DecodeFloatArray(d, pdataOffset + 1 * count * 4, count);
+                            float[] bs = DecodeFloatArray(d, pdataOffset + 2 * count * 4, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    inst.XmlProperties[pname] = $"<Color3 name=\"{pname}\"><R>{rs[i].ToString("G9", CultureInfo.InvariantCulture)}</R><G>{gs[i].ToString("G9", CultureInfo.InvariantCulture)}</G><B>{bs[i].ToString("G9", CultureInfo.InvariantCulture)}</B></Color3>";
+                                }
+                            }
+                        }
+                        // 7. Vector2 (0x0D)
+                        else if (ptype == 0x0D && pdataOffset + count * 8 <= d.Length)
+                        {
+                            float[] xs = DecodeFloatArray(d, pdataOffset + 0 * count * 4, count);
+                            float[] ys = DecodeFloatArray(d, pdataOffset + 1 * count * 4, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    inst.XmlProperties[pname] = $"<Vector2 name=\"{pname}\"><X>{xs[i].ToString("G9", CultureInfo.InvariantCulture)}</X><Y>{ys[i].ToString("G9", CultureInfo.InvariantCulture)}</Y></Vector2>";
+                                }
+                            }
+                        }
+                        // 8. Vector3 (0x0E): size, Scale, Offset, InitialSize, ModelMeshSize, VertexColor
+                        else if (ptype == 0x0E && pdataOffset + count * 12 <= d.Length)
+                        {
+                            var v3s = DecodeVector3Array(d, pdataOffset, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    var v = v3s[i];
+                                    inst.Properties[pname] = $"({v.X:F3}, {v.Y:F3}, {v.Z:F3})";
+                                    inst.XmlProperties[pname] = $"<Vector3 name=\"{pname}\"><X>{v.X.ToString("G9", CultureInfo.InvariantCulture)}</X><Y>{v.Y.ToString("G9", CultureInfo.InvariantCulture)}</Y><Z>{v.Z.ToString("G9", CultureInfo.InvariantCulture)}</Z></Vector3>";
+                                }
+                            }
+                        }
+                        // 9. CoordinateFrame (0x10): CFrame, PivotOffset, ModelMeshCFrame, C0, C1
+                        else if (ptype == 0x10)
+                        {
+                            var cframes = DecodeCFrameArray(d, pdataOffset, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    var cf = cframes[i];
+                                    inst.Properties[pname] = $"({cf.X:F2}, {cf.Y:F2}, {cf.Z:F2})";
+                                    inst.XmlProperties[pname] = $"<CoordinateFrame name=\"{pname}\"><X>{cf.X.ToString("G9", CultureInfo.InvariantCulture)}</X><Y>{cf.Y.ToString("G9", CultureInfo.InvariantCulture)}</Y><Z>{cf.Z.ToString("G9", CultureInfo.InvariantCulture)}</Z><R00>{cf.R00.ToString("G9", CultureInfo.InvariantCulture)}</R00><R01>{cf.R01.ToString("G9", CultureInfo.InvariantCulture)}</R01><R02>{cf.R02.ToString("G9", CultureInfo.InvariantCulture)}</R02><R10>{cf.R10.ToString("G9", CultureInfo.InvariantCulture)}</R10><R11>{cf.R11.ToString("G9", CultureInfo.InvariantCulture)}</R11><R12>{cf.R12.ToString("G9", CultureInfo.InvariantCulture)}</R12><R20>{cf.R20.ToString("G9", CultureInfo.InvariantCulture)}</R20><R21>{cf.R21.ToString("G9", CultureInfo.InvariantCulture)}</R21><R22>{cf.R22.ToString("G9", CultureInfo.InvariantCulture)}</R22></CoordinateFrame>";
+                                }
+                            }
+                        }
+                        // 10. Enum / Token (0x12): Material, shape, formFactorRaw, MeshType, etc.
+                        else if (ptype == 0x12 && pdataOffset + count * 4 <= d.Length)
+                        {
+                            var enums = DecodeUintArray(d, pdataOffset, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    inst.Properties[pname] = enums[i].ToString();
+                                    inst.XmlProperties[pname] = $"<token name=\"{pname}\">{enums[i]}</token>";
+                                }
+                            }
+                        }
+                        // 11. Referent (0x13): PrimaryPart, Part0, Part1, SoundGroup
+                        else if (ptype == 0x13 && pdataOffset + count * 4 <= d.Length)
+                        {
+                            var refs = DecodeReferentArray(d, pdataOffset, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    int targetRef = refs[i];
+                                    inst.XmlProperties[pname] = targetRef >= 0 ? $"<Ref name=\"{pname}\">RBX{targetRef}</Ref>" : $"<Ref name=\"{pname}\">null</Ref>";
+                                }
+                            }
+                        }
+                        // 12. Color3uint8 (0x1A)
+                        else if (ptype == 0x1A && pdataOffset + count * 3 <= d.Length)
+                        {
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    byte r = d[pdataOffset + 0 * count + i];
+                                    byte g = d[pdataOffset + 1 * count + i];
+                                    byte b = d[pdataOffset + 2 * count + i];
+                                    uint col = 0xFF000000u | ((uint)r << 16) | ((uint)g << 8) | (uint)b;
+                                    inst.Properties["Color3uint8"] = col.ToString();
+                                    inst.XmlProperties[pname] = $"<Color3uint8 name=\"{pname}\">{col}</Color3uint8>";
+                                }
+                            }
+                        }
+                        // 13. Int64 (0x1B)
+                        else if (ptype == 0x1B && pdataOffset + count * 8 <= d.Length)
+                        {
+                            var i64s = DecodeInt64Array(d, pdataOffset, count);
+                            for (int i = 0; i < count; i++)
+                            {
+                                if (Instances.TryGetValue(cinfo.InstanceIds[i], out var inst))
+                                {
+                                    inst.XmlProperties[pname] = $"<int64 name=\"{pname}\">{i64s[i]}</int64>";
                                 }
                             }
                         }
@@ -358,6 +542,12 @@ namespace RobloxScriptExplorer.Logica
 
         public string GetInstanceHierarchyPath(int id)
         {
+            var parts = GetInstanceHierarchySegments(id);
+            return string.Join("/", parts);
+        }
+
+        public List<string> GetInstanceHierarchySegments(int id)
+        {
             var parts = new List<string>();
             int? curr = id;
             while (curr.HasValue && Instances.TryGetValue(curr.Value, out var inst))
@@ -366,7 +556,7 @@ namespace RobloxScriptExplorer.Logica
                 curr = inst.ParentId;
             }
             parts.Reverse();
-            return string.Join("/", parts);
+            return parts;
         }
 
         public string ExportAllInOneRbxmxPackages(string baseDirectory, Action<string, double>? onProgress = null)
@@ -489,19 +679,80 @@ namespace RobloxScriptExplorer.Logica
             }
         }
 
+        public async Task ExportAsRbxmxAsync(RobloxInstance rootInst, string targetFilePath, Action<string, double>? onProgress = null)
+        {
+            onProgress?.Invoke("Generando modelo Roblox Studio (.rbxmx) en C# puro...", 0.30);
+            await Task.Run(() => ExportAsRbxmx(rootInst, targetFilePath));
+            onProgress?.Invoke("¡Modelo Roblox (.rbxmx) exportado con éxito!", 1.0);
+        }
+
+        public void DeleteRecursive(int id)
+        {
+            if (Instances.TryGetValue(id, out var inst))
+            {
+                var children = inst.ChildrenIds.ToList();
+                foreach (int cid in children)
+                {
+                    DeleteRecursive(cid);
+                }
+                DeleteInstance(id);
+            }
+        }
+
         public void ExportAsRbxmx(RobloxInstance rootInst, string targetFilePath)
         {
             var sb = new StringBuilder();
             sb.AppendLine("<roblox xmlns:xmime=\"http://www.w3.org/2005/05/xmlmime\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:noNamespaceSchemaLocation=\"http://www.roblox.com/roblox.xsd\" version=\"4\">");
             sb.AppendLine("\t<Meta name=\"ExplicitAutoJoints\">true</Meta>");
 
-            AppendInstanceXml(rootInst, sb, 1);
+            // Recolectar todos los IDs dentro del subárbol a exportar
+            var subtreeIds = new HashSet<int>();
+            void CollectSubtree(RobloxInstance item)
+            {
+                subtreeIds.Add(item.Id);
+                foreach (var cid in item.ChildrenIds)
+                {
+                    if (Instances.TryGetValue(cid, out var child))
+                        CollectSubtree(child);
+                }
+            }
+            CollectSubtree(rootInst);
 
+            // Preservar clase original (Folder -> Folder, Model -> Model)
+            string rootClass = rootInst.IsService ? "Folder" : rootInst.ClassName;
+            string rootName = SanitizeForXml(rootInst.Name);
+
+            sb.AppendLine($"\t<Item class=\"{rootClass}\" referent=\"RBX0\">");
+            sb.AppendLine("\t\t<Properties>");
+            sb.AppendLine($"\t\t\t<string name=\"Name\">{EscapeXml(rootName)}</string>");
+
+            // Emitir propiedades ricas de la raíz si las tiene
+            foreach (var kvp in rootInst.XmlProperties)
+            {
+                if (kvp.Key.Equals("Name", StringComparison.OrdinalIgnoreCase)) continue;
+                EmitXmlProperty(sb, kvp.Key, kvp.Value, "\t\t\t", subtreeIds);
+            }
+
+            if (rootClass == "Model" && !rootInst.XmlProperties.ContainsKey("PrimaryPart"))
+            {
+                sb.AppendLine("\t\t\t<Ref name=\"PrimaryPart\">null</Ref>");
+            }
+            sb.AppendLine("\t\t</Properties>");
+
+            foreach (int childId in rootInst.ChildrenIds)
+            {
+                if (Instances.TryGetValue(childId, out var childInst))
+                {
+                    AppendInstanceXml(childInst, sb, 2, subtreeIds);
+                }
+            }
+
+            sb.AppendLine("\t</Item>");
             sb.AppendLine("</roblox>");
-            File.WriteAllText(targetFilePath, sb.ToString(), Encoding.UTF8);
+            File.WriteAllText(targetFilePath, sb.ToString(), new UTF8Encoding(false));
         }
 
-        private void AppendInstanceXml(RobloxInstance inst, StringBuilder sb, int indent)
+        private void AppendInstanceXml(RobloxInstance inst, StringBuilder sb, int indent, HashSet<int> subtreeIds)
         {
             string tabs = new string('\t', indent);
             
@@ -526,48 +777,33 @@ namespace RobloxScriptExplorer.Logica
             sb.AppendLine($"{tabs}\t<Properties>");
             sb.AppendLine($"{tabs}\t\t<string name=\"Name\">{EscapeXml(instName)}</string>");
 
-            if (className is "Script" or "LocalScript" or "ModuleScript")
+            // 1. Si es script, emitir el código Luau actual (incluso si fue editado por el usuario en la UI)
+            if (inst.IsScript)
             {
                 string rawSrc = inst.Properties.TryGetValue("Source", out var s) ? s : string.Empty;
                 string cleanSrc = SanitizeLuaSourceForXml(rawSrc);
+                sb.AppendLine($"{tabs}\t\t<Content name=\"LinkedSource\"><null></null></Content>");
                 sb.AppendLine($"{tabs}\t\t<ProtectedString name=\"Source\"><![CDATA[{cleanSrc}]]></ProtectedString>");
-                if (className is "Script" or "LocalScript")
+                if (inst.ClassName is "Script" or "LocalScript")
                 {
                     sb.AppendLine($"{tabs}\t\t<bool name=\"Disabled\">false</bool>");
                 }
             }
-            else if (className == "ScreenGui")
-            {
-                sb.AppendLine($"{tabs}\t\t<bool name=\"Enabled\">true</bool>");
-                sb.AppendLine($"{tabs}\t\t<bool name=\"ResetOnSpawn\">true</bool>");
-            }
-            else if (className is "Frame" or "TextLabel" or "TextButton" or "ImageLabel" or "ImageButton" or "TextBox")
-            {
-                sb.AppendLine($"{tabs}\t\t<bool name=\"Visible\">true</bool>");
 
-                if (className is "TextLabel" or "TextButton" or "TextBox")
-                {
-                    string txt = inst.Properties.TryGetValue("Text", out var t) ? SanitizeForXml(t) : instName;
-                    sb.AppendLine($"{tabs}\t\t<string name=\"Text\">{EscapeXml(txt)}</string>");
-                }
-                if (className is "ImageLabel" or "ImageButton" && inst.Properties.TryGetValue("Image", out var img) && !string.IsNullOrWhiteSpace(img))
-                {
-                    sb.AppendLine($"{tabs}\t\t<Content name=\"Image\"><url>{EscapeXml(SanitizeForXml(img))}</url></Content>");
-                }
-            }
-            else if (className is "Part" or "MeshPart" or "SpawnLocation")
+            // 2. Emitir todas las propiedades ricas decodificadas de los chunks PROP
+            // (Escalas SpecialMesh, InitialSize, ScaleFactor, shape, Material, CFrame, Color3uint8, etc.)
+            foreach (var kvp in inst.XmlProperties)
             {
-                sb.AppendLine($"{tabs}\t\t<bool name=\"Anchored\">true</bool>");
-                sb.AppendLine($"{tabs}\t\t<bool name=\"CanCollide\">true</bool>");
-                sb.AppendLine($"{tabs}\t\t<Vector3 name=\"size\"><X>4</X><Y>1.2</Y><Z>2</Z></Vector3>");
+                if (kvp.Key.Equals("Name", StringComparison.OrdinalIgnoreCase)) continue;
+                if (inst.IsScript && (kvp.Key.Equals("Source", StringComparison.OrdinalIgnoreCase) || kvp.Key.Equals("LinkedSource", StringComparison.OrdinalIgnoreCase))) continue;
+
+                EmitXmlProperty(sb, kvp.Key, kvp.Value, $"{tabs}\t\t", subtreeIds);
             }
-            else if (className == "Model")
+
+            // 3. Fallbacks necesarios para modelos
+            if (className == "Model" && !inst.XmlProperties.ContainsKey("PrimaryPart"))
             {
-                sb.AppendLine($"{tabs}\t\t<CoordinateFrame name=\"WorldPivotData\"><X>0</X><Y>0</Y><Z>0</Z><R00>1</R00><R01>0</R01><R02>0</R02><R10>0</R10><R11>1</R11><R12>0</R12><R20>0</R20><R21>0</R21><R22>1</R22></CoordinateFrame>");
-            }
-            else if (className == "Sound" && inst.Properties.TryGetValue("SoundId", out var sid) && !string.IsNullOrWhiteSpace(sid))
-            {
-                sb.AppendLine($"{tabs}\t\t<Content name=\"SoundId\"><url>{EscapeXml(SanitizeForXml(sid))}</url></Content>");
+                sb.AppendLine($"{tabs}\t\t<Ref name=\"PrimaryPart\">null</Ref>");
             }
 
             sb.AppendLine($"{tabs}\t</Properties>");
@@ -576,12 +812,36 @@ namespace RobloxScriptExplorer.Logica
             {
                 if (Instances.TryGetValue(childId, out var childInst))
                 {
-                    AppendInstanceXml(childInst, sb, indent + 1);
+                    AppendInstanceXml(childInst, sb, indent + 1, subtreeIds);
                 }
             }
 
             sb.AppendLine($"{tabs}</Item>");
         }
+
+        private static void EmitXmlProperty(StringBuilder sb, string propName, string xmlSnippet, string prefix, HashSet<int> subtreeIds)
+        {
+            // Validar si es una referencia cruzada (Ref) para evitar referencias rotas a objetos fuera del paquete exportado
+            if (xmlSnippet.StartsWith("<Ref name=\"", StringComparison.OrdinalIgnoreCase))
+            {
+                int rbxIdx = xmlSnippet.IndexOf(">RBX", StringComparison.Ordinal);
+                if (rbxIdx >= 0)
+                {
+                    int endIdx = xmlSnippet.IndexOf('<', rbxIdx + 4);
+                    if (endIdx > rbxIdx + 4 && int.TryParse(xmlSnippet.Substring(rbxIdx + 4, endIdx - (rbxIdx + 4)), out int targetId))
+                    {
+                        if (!subtreeIds.Contains(targetId))
+                        {
+                            sb.AppendLine($"{prefix}<Ref name=\"{propName}\">null</Ref>");
+                            return;
+                        }
+                    }
+                }
+            }
+
+            sb.AppendLine($"{prefix}{xmlSnippet}");
+        }
+
 
         private static string SanitizeLuaSourceForXml(string source)
         {
@@ -636,5 +896,189 @@ namespace RobloxScriptExplorer.Logica
             }
             return name;
         }
+
+        public struct DecodedCFrame
+        {
+            public float X, Y, Z;
+            public float R00, R01, R02;
+            public float R10, R11, R12;
+            public float R20, R21, R22;
+        }
+
+        private static DecodedCFrame[] DecodeCFrameArray(byte[] data, int offset, int count)
+        {
+            var cframes = new DecodedCFrame[count];
+            int curr = offset;
+
+            for (int i = 0; i < count; i++)
+            {
+                byte id = data[curr++];
+                if (id == 0)
+                {
+                    cframes[i].R00 = BitConverter.ToSingle(data, curr); curr += 4;
+                    cframes[i].R01 = BitConverter.ToSingle(data, curr); curr += 4;
+                    cframes[i].R02 = BitConverter.ToSingle(data, curr); curr += 4;
+                    cframes[i].R10 = BitConverter.ToSingle(data, curr); curr += 4;
+                    cframes[i].R11 = BitConverter.ToSingle(data, curr); curr += 4;
+                    cframes[i].R12 = BitConverter.ToSingle(data, curr); curr += 4;
+                    cframes[i].R20 = BitConverter.ToSingle(data, curr); curr += 4;
+                    cframes[i].R21 = BitConverter.ToSingle(data, curr); curr += 4;
+                    cframes[i].R22 = BitConverter.ToSingle(data, curr); curr += 4;
+                }
+                else
+                {
+                    GetRotationMatrix(id, out cframes[i].R00, out cframes[i].R01, out cframes[i].R02,
+                                          out cframes[i].R10, out cframes[i].R11, out cframes[i].R12,
+                                          out cframes[i].R20, out cframes[i].R21, out cframes[i].R22);
+                }
+            }
+
+            float[] xs = DecodeFloatArray(data, curr, count);
+            float[] ys = DecodeFloatArray(data, curr + count * 4, count);
+            float[] zs = DecodeFloatArray(data, curr + count * 8, count);
+
+            for (int i = 0; i < count; i++)
+            {
+                cframes[i].X = xs[i];
+                cframes[i].Y = ys[i];
+                cframes[i].Z = zs[i];
+            }
+
+            return cframes;
+        }
+
+        private static void GetRotationMatrix(byte id,
+            out float r00, out float r01, out float r02,
+            out float r10, out float r11, out float r12,
+            out float r20, out float r21, out float r22)
+        {
+            switch (id)
+            {
+                case 0x02: r00=1; r01=0; r02=0; r10=0; r11=1; r12=0; r20=0; r21=0; r22=1; break;
+                case 0x03: r00=1; r01=0; r02=0; r10=0; r11=0; r12=-1; r20=0; r21=1; r22=0; break;
+                case 0x05: r00=1; r01=0; r02=0; r10=0; r11=-1; r12=0; r20=0; r21=0; r22=-1; break;
+                case 0x06: r00=1; r01=0; r02=0; r10=0; r11=0; r12=1; r20=0; r21=-1; r22=0; break;
+                case 0x07: r00=0; r01=1; r02=0; r10=1; r11=0; r12=0; r20=0; r21=0; r22=-1; break;
+                case 0x09: r00=0; r01=1; r02=0; r10=0; r11=0; r12=1; r20=1; r21=0; r22=0; break;
+                case 0x0A: r00=0; r01=1; r02=0; r10=-1; r11=0; r12=0; r20=0; r21=0; r22=1; break;
+                case 0x0C: r00=0; r01=1; r02=0; r10=0; r11=0; r12=-1; r20=-1; r21=0; r22=0; break;
+                case 0x0D: r00=0; r01=0; r02=1; r10=1; r11=0; r12=0; r20=0; r21=1; r22=0; break;
+                case 0x0E: r00=0; r01=0; r02=1; r10=0; r11=1; r12=0; r20=-1; r21=0; r22=0; break;
+                case 0x10: r00=0; r01=0; r02=1; r10=-1; r11=0; r12=0; r20=0; r21=-1; r22=0; break;
+                case 0x11: r00=0; r01=0; r02=1; r10=0; r11=-1; r12=0; r20=1; r21=0; r22=0; break;
+                case 0x14: r00=-1; r01=0; r02=0; r10=0; r11=1; r12=0; r20=0; r21=0; r22=-1; break;
+                case 0x15: r00=-1; r01=0; r02=0; r10=0; r11=0; r12=1; r20=0; r21=1; r22=0; break;
+                case 0x17: r00=-1; r01=0; r02=0; r10=0; r11=-1; r12=0; r20=0; r21=0; r22=1; break;
+                case 0x18: r00=-1; r01=0; r02=0; r10=0; r11=0; r12=-1; r20=0; r21=-1; r22=0; break;
+                case 0x19: r00=0; r01=-1; r02=0; r10=1; r11=0; r12=0; r20=0; r21=0; r22=1; break;
+                case 0x1B: r00=0; r01=-1; r02=0; r10=0; r11=0; r12=1; r20=-1; r21=0; r22=0; break;
+                case 0x1C: r00=0; r01=-1; r02=0; r10=-1; r11=0; r12=0; r20=0; r21=0; r22=-1; break;
+                case 0x1E: r00=0; r01=-1; r02=0; r10=0; r11=0; r12=-1; r20=1; r21=0; r22=0; break;
+                case 0x1F: r00=0; r01=0; r02=-1; r10=1; r11=0; r12=0; r20=0; r21=-1; r22=0; break;
+                case 0x20: r00=0; r01=0; r02=-1; r10=0; r11=1; r12=0; r20=1; r21=0; r22=0; break;
+                case 0x22: r00=0; r01=0; r02=-1; r10=-1; r11=0; r12=0; r20=0; r21=1; r22=0; break;
+                case 0x23: r00=0; r01=0; r02=-1; r10=0; r11=-1; r12=0; r20=-1; r21=0; r22=0; break;
+                default: r00=1; r01=0; r02=0; r10=0; r11=1; r12=0; r20=0; r21=0; r22=1; break;
+            }
+        }
+
+        private static (float X, float Y, float Z)[] DecodeVector3Array(byte[] data, int offset, int count)
+        {
+            float[] xs = DecodeFloatArray(data, offset, count);
+            float[] ys = DecodeFloatArray(data, offset + count * 4, count);
+            float[] zs = DecodeFloatArray(data, offset + count * 8, count);
+
+            var res = new (float X, float Y, float Z)[count];
+            for (int i = 0; i < count; i++)
+            {
+                res[i] = (xs[i], ys[i], zs[i]);
+            }
+            return res;
+        }
+
+        private static float[] DecodeFloatArray(byte[] data, int offset, int count)
+        {
+            var res = new float[count];
+            for (int i = 0; i < count; i++)
+            {
+                byte b0 = data[offset + 0 * count + i];
+                byte b1 = data[offset + 1 * count + i];
+                byte b2 = data[offset + 2 * count + i];
+                byte b3 = data[offset + 3 * count + i];
+
+                uint robloxVal = ((uint)b0 << 24) | ((uint)b1 << 16) | ((uint)b2 << 8) | (uint)b3;
+                uint standard = (robloxVal >> 1) | ((robloxVal & 1) << 31);
+                res[i] = BitConverter.UInt32BitsToSingle(standard);
+            }
+            return res;
+        }
+
+        private static uint[] DecodeUintArray(byte[] data, int offset, int count)
+        {
+            var res = new uint[count];
+            for (int i = 0; i < count; i++)
+            {
+                byte b0 = data[offset + 0 * count + i];
+                byte b1 = data[offset + 1 * count + i];
+                byte b2 = data[offset + 2 * count + i];
+                byte b3 = data[offset + 3 * count + i];
+                res[i] = ((uint)b0 << 24) | ((uint)b1 << 16) | ((uint)b2 << 8) | b3;
+            }
+            return res;
+        }
+
+        private static int[] DecodeInt32Array(byte[] data, int offset, int count)
+        {
+            var res = new int[count];
+            for (int i = 0; i < count; i++)
+            {
+                byte b0 = data[offset + 0 * count + i];
+                byte b1 = data[offset + 1 * count + i];
+                byte b2 = data[offset + 2 * count + i];
+                byte b3 = data[offset + 3 * count + i];
+                uint u = ((uint)b0 << 24) | ((uint)b1 << 16) | ((uint)b2 << 8) | b3;
+                res[i] = (int)((u >> 1) ^ (-(int)(u & 1)));
+            }
+            return res;
+        }
+
+        private static long[] DecodeInt64Array(byte[] data, int offset, int count)
+        {
+            var res = new long[count];
+            for (int i = 0; i < count; i++)
+            {
+                byte b0 = data[offset + 0 * count + i];
+                byte b1 = data[offset + 1 * count + i];
+                byte b2 = data[offset + 2 * count + i];
+                byte b3 = data[offset + 3 * count + i];
+                byte b4 = data[offset + 4 * count + i];
+                byte b5 = data[offset + 5 * count + i];
+                byte b6 = data[offset + 6 * count + i];
+                byte b7 = data[offset + 7 * count + i];
+                ulong u = ((ulong)b0 << 56) | ((ulong)b1 << 48) | ((ulong)b2 << 40) | ((ulong)b3 << 32) |
+                          ((ulong)b4 << 24) | ((ulong)b5 << 16) | ((ulong)b6 << 8) | b7;
+                res[i] = (long)((u >> 1) ^ (ulong)(-(long)(u & 1)));
+            }
+            return res;
+        }
+
+        private static List<int> DecodeReferentArray(byte[] data, int offset, int count)
+        {
+            var res = new List<int>(count);
+            int prev = 0;
+            for (int i = 0; i < count; i++)
+            {
+                byte b0 = data[offset + 0 * count + i];
+                byte b1 = data[offset + 1 * count + i];
+                byte b2 = data[offset + 2 * count + i];
+                byte b3 = data[offset + 3 * count + i];
+                uint u = ((uint)b0 << 24) | ((uint)b1 << 16) | ((uint)b2 << 8) | b3;
+                int zigzag = (int)((u >> 1) ^ (-(int)(u & 1)));
+                prev += zigzag;
+                res.Add(prev);
+            }
+            return res;
+        }
     }
 }
+

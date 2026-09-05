@@ -189,7 +189,7 @@
                             FontWeight="SemiBold" Padding="12,8" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" Click="BtnBackups_Click">
                         <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
                     </Button>
-                    <Button x:Name="BtnExportModel" Content="🧊 Exportar Modelo (.rbxmx)" Background="#7C3AED" Foreground="#FFFFFF"
+                    <Button x:Name="BtnExportModel" Content="🧊 Exportar Modelo Roblox (.rbxmx)" Background="#7C3AED" Foreground="#FFFFFF"
                             FontWeight="SemiBold" Padding="12,8" BorderThickness="0" Margin="0,0,8,0" Cursor="Hand" IsEnabled="False" Click="BtnExportModel_Click">
                         <Button.Resources><Style TargetType="Border"><Setter Property="CornerRadius" Value="6"/></Style></Button.Resources>
                     </Button>

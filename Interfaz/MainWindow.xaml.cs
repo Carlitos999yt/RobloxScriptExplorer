@@ -705,33 +705,49 @@ namespace RobloxScriptExplorer.Interfaz
             return false;
         }
 
-        private void BtnExportModel_Click(object sender, RoutedEventArgs e)
+        private async void BtnExportModel_Click(object sender, RoutedEventArgs e)
         {
             if (!_manager.IsLoaded)
                 return;
 
             if (_selectedInstance == null)
             {
-                MessageBox.Show("Selecciona primero el modelo 3D, carpeta, GUI o script que deseas exportar como modelo Roblox.", "Selección Requerida", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("Selecciona primero el modelo 3D, carpeta, mapa, GUI o script que deseas exportar.", "Selección Requerida", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
 
+            string safeName = string.Join("_", _selectedInstance.Name.Split(Path.GetInvalidFileNameChars()));
+
             var dlg = new SaveFileDialog
             {
-                Title = "Guardar como Modelo Roblox (.rbxmx)",
-                FileName = $"{_selectedInstance.Name}.rbxmx",
-                Filter = "Roblox Model XML (*.rbxmx)|*.rbxmx|Todos los archivos (*.*)|*.*"
+                Title = "Exportar Modelo o Carpeta de Roblox (.rbxmx)",
+                FileName = $"{safeName}.rbxmx",
+                Filter = "Modelo XML de Roblox (*.rbxmx) [100% Coordenadas y Texturas Reales]|*.rbxmx|Todos los archivos (*.*)|*.*"
             };
 
             if (dlg.ShowDialog() == true)
             {
                 try
                 {
-                    _manager.ExportAsRbxmx(_selectedInstance, dlg.FileName);
-                    MessageBox.Show($"¡Modelo Roblox exportado con éxito!\n\n📦 Archivo: {Path.GetFileName(dlg.FileName)}\n\n💡 Puedes arrastrar este archivo .rbxmx directamente dentro de cualquier ventana de Roblox Studio.", "Modelo Exportado", MessageBoxButton.OK, MessageBoxImage.Information);
+                    LoadingOverlay.Visibility = Visibility.Visible;
+                    LblOverlayTitle.Text = "Exportando Modelo Roblox (.rbxmx)...";
+                    LblLoadingStatus.Text = "Decodificando mallas y coordenadas 3D...";
+
+                    await _manager.ExportAsRbxmxAsync(_selectedInstance, dlg.FileName, (status, progress) =>
+                    {
+                        Dispatcher.Invoke(() =>
+                        {
+                            LblLoadingStatus.Text = status;
+                            ProgressLoading.Value = progress * 100;
+                        });
+                    });
+
+                    LoadingOverlay.Visibility = Visibility.Collapsed;
+                    MessageBox.Show($"¡Modelo Roblox (.rbxmx) exportado con éxito!\n\n📦 Archivo: {Path.GetFileName(dlg.FileName)}\n\n💡 Contiene el 100% de las coordenadas 3D, orientaciones, mallas y materiales originales sin aplastarse ni causar lag.\n\nPara importarlo en Roblox Studio:\n1. Abre tu juego en Roblox Studio.\n2. Haz clic derecho en 'Workspace' en la ventana Explorer.\n3. Selecciona 'Insert from File...' ('Insertar desde archivo...') o arrastra el archivo directamente a Roblox Studio.", "Modelo Exportado Exitosamente", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
+                    LoadingOverlay.Visibility = Visibility.Collapsed;
                     MessageBox.Show($"Error al exportar modelo:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
