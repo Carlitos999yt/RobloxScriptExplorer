@@ -8,9 +8,7 @@
 *.sln.docstates
 Release_Standalone/
 
-publish/
-*.rbxl
-*.lock
+## Backups and Temporary Files
 *.tmp
 *.bak
 *.log
